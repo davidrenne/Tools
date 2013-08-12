@@ -61,6 +61,7 @@ DEVELOPER NOTES
 -->
 
 
+
 <xsl:stylesheet 
     version="2.0"
     xmlns:cybox="http://cybox.mitre.org/cybox-2"
@@ -92,10 +93,22 @@ DEVELOPER NOTES
     xmlns:WinFileObj="http://cybox.mitre.org/objects#WinFileObject-2"
     xmlns:WinExecutableFileObj="http://cybox.mitre.org/objects#WinExecutableFileObject-2"
     xmlns:WinProcessObj="http://cybox.mitre.org/objects#WinProcessObject-2">
-    
+
+    <!-- <CONFIG> -->
+
+        <!-- debug will allow you to conditionally inject information in the XSLT routine -->
+        <xsl:variable name="debug" select="'true'"/>
+
+        <!-- include_html_body will inline all CSS and javascript as well as wrap the HTML node around the Cybox object HTML output -->
+        <xsl:variable name="include_html_body" select="'true'"/>
+
+        <!-- include_cybox_version_info will inject information and headers about the Cybox version -->
+        <xsl:variable name="include_cybox_version_info" select="'true'"/>
+
+    <!-- </CONFIG> -->
+        
 <xsl:output method="html" omit-xml-declaration="yes" indent="yes" media-type="text/html" version="4.0" />
    <xsl:key name="observableID" match="cybox:Observable" use="@id"/>
-    
     <!--
       This is the main template that sets up the html page that sets up the
       html structure, includes the base css and javascript, and adds the
@@ -103,12 +116,96 @@ DEVELOPER NOTES
       surrounding content for the Observables table.
     --> 
     <xsl:template match="/">
+        <xsl:variable name="include_html_body" select="$include_html_body"/>
+
+        <xsl:if test="$include_html_body = 'true'">
+            <xsl:call-template name="inlineOuterShell"/>
+        </xsl:if>
+
+        <xsl:if test="$include_html_body != 'true'">
+            <xsl:call-template name="cleanOuterShell"/>
+        </xsl:if>
+    </xsl:template>
+    
+    <!--
+      draw the main table on the page that represents the list of Observables.
+      these are the elements that are directly below the root element of the page.
+      
+      each observable will generate two rows in the table.  the first one is the
+      heading that's always visible and is clickable to expand/collapse the
+      second row.
+    -->
+    <xsl:template name="processObservables">
+      <xsl:for-each select="cybox:Observables">        
+          <div id="observablesspandiv" style="font-weight:bold; margin:5px; color:#BD9C8C;">
+            <TABLE class="grid tablesorter" cellspacing="0">
+                <COLGROUP>
+                    <COL width="90%"/>
+                    <COL width="10%"/>
+                </COLGROUP>
+                <THEAD>
+                    <TR>
+                        <TH class="header">
+                            ID
+                        </TH>
+                        <TH class="header">
+                            Type
+                        </TH>
+                    </TR>
+                </THEAD>
+                <TBODY>
+                    <xsl:for-each select="cybox:Observable">
+                        <!-- <xsl:sort select="cybox:Observable_Composition" order="descending"/> -->
+                        <xsl:variable name="evenOrOdd" select="if(position() mod 2 = 0) then 'even' else 'odd'" />
+                        <xsl:call-template name="processObservable"><xsl:with-param name="evenOrOdd" select="$evenOrOdd"/></xsl:call-template>
+                    </xsl:for-each>
+                </TBODY>
+            </TABLE>    
+        </div>
+        </xsl:for-each>
+    </xsl:template>
+
+
+
+    <!--
+      Simple output without full HTML payload.
+
+      Note: This XSLT file will inject xlmns namespaces into attributes inside the outer div#wrapper in which you should strip before using as a partial Cybox object HTML output and inject these namespaces in your outer shell of your page showing these Cybox details
+    -->
+
+    <xsl:template name="cleanOuterShell">
+
+        <xsl:variable name="debug" select="$debug"/>
+
+        <xsl:if test="$debug = 'true'">
+            <!-- Debugging most likely you will test external copied stylesheets and javascript files -->
+            <link href="http://localhost:8000/static/css/cybox.css" rel="stylesheet"/>
+            <script src="http://localhost:8000/static/js/cybox.js"><![CDATA[    //]]></script>
+        </xsl:if>
+
+        <xsl:variable name="include_cybox_version_info" select="$include_cybox_version_info"/>
+        <div id="wrapper">
+            <xsl:if test="$include_cybox_version_info = 'true'">
+                <xsl:call-template name="cyboxHeader"/>
+            </xsl:if>
+            <xsl:call-template name="processObservables"/>
+        </div>
+    </xsl:template>
+
+
+    <!--
+      Inline output with all inline CSS and JS and no external files
+    -->
+
+    <xsl:template name="inlineOuterShell">
+        <xsl:variable name="include_cybox_version_info" select="$include_cybox_version_info"/>
+
             <html>
                <head>
                 <title>CybOX Output</title>
                 <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
                 <style type="text/css">
-                    
+
                     body
                     {
                       font-family: Arial,Helvetica,sans-serif;
@@ -124,19 +221,19 @@ DEVELOPER NOTES
                     border-style:solid;
                     border-width:1px;
                     }
-                    
+
                     table.grid thead, table.grid .collapsible {
                     background-color: #c7c3bb;
                     }
-                    
+
                     table.grid th {
                     color: #565770;
                     padding: 4px 16px 4px 0;
                     padding-left: 10px;
                     font-weight: bold;
                     text-align: left;
-                    } 
-                    
+                    }
+
                     table.grid td {
                     color: #565770;
                     padding: 4px 6px;
@@ -148,7 +245,7 @@ DEVELOPER NOTES
 
                     body {
                     }
-                    #wrapper { 
+                    #wrapper {
                     margin: 0 auto;
                     width: 80%;
                     }
@@ -157,7 +254,7 @@ DEVELOPER NOTES
                     padding: 10px;
                     margin: 10px 0px 5px 0px;
                     }
-                    #content { 
+                    #content {
                     width: 100%;
                     color: #333;
                     border: 2px solid #ccc;
@@ -167,7 +264,7 @@ DEVELOPER NOTES
                     font-size: 11px;
                     color: #039;
                     }
-                    
+
                     #hor-minimalist-a
                     {
                       font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif;
@@ -241,14 +338,14 @@ DEVELOPER NOTES
                     border-right: 10px solid transparent;
                     border-left: 10px solid transparent;
                     }
-                    #container { 
+                    #container {
                     color: #333;
                     border: 1px solid #ccc;
                     background: #FFFFFF;
                     margin: 0px 0px 10px 0px;
                     padding: 10px;
                     }
-                    #section { 
+                    #section {
                     color: #333;
                     background: #FFFFFF;
                     margin: 0px 0px 5px 0px;
@@ -330,13 +427,13 @@ DEVELOPER NOTES
                     0% {background: hsla(360, 100%, 50%, .3); }
                     100% {background: hsla(360, 100%, 50%, .7); }
                     }
-                    
+
                     .highlightTargetLink
                     {
                     color: blue;
                     text-decoration: underline;
                     }
-                    
+
                     table.compositionTableOperator > tbody > tr > td
                     {
                       padding: 0.5em;
@@ -370,12 +467,12 @@ DEVELOPER NOTES
                     {
                       padding: 0.5em;
                     }
-                    .compositionTableOperand > tbody > tr > td > div 
+                    .compositionTableOperand > tbody > tr > td > div
                     {
                       background-color: lightcyan;
                       padding: 0.7em;
                     }
-                    
+
                     .table-display dt
                     {
                     clear: left;
@@ -386,7 +483,7 @@ DEVELOPER NOTES
                     border-top: 1px solid #999;
                     font-weight: bold;
                     }
-                    
+
                     .table-display dd
                     {
                     float: left;
@@ -395,7 +492,7 @@ DEVELOPER NOTES
                     padding: 5px;
                     border-top: 1px solid #999;
                     }
-                    
+
                     .verbatim
                     {
                       white-space: pre-line;
@@ -405,46 +502,46 @@ DEVELOPER NOTES
                     {
                       empty-cells: show;
                     }
-                    
+
                     .externalLinkWarning
                     {
                       font-weight: bold;
                       color: red;
                     }
-                    
+
                     .inlineOrByReferenceLabel
                     {
                       font-style: italic!important;
                       color: lightgray;
                     }
-                    
+
                     .contents
                     {
                       padding-left: 1em;
                     }
-                    
+
                     .cyboxPropertiesValue
                     {
                       font-weight: normal;
                     }
-                    
+
                     .cyboxPropertiesConstraints
                     {
                       font-weight: normal;
                       font-style: italic!important;
                       color: red;
                     }
-                    
+
                     .cyboxPropertiesConstraints .objectReference
                     {
                       color: black;
                     }
-                    
+
                     .objectReference
                     {
                       margin-left: 1em;
                     }
-                    
+
                     .expandableContainer.collapsed > .expandableToggle::before,
                     .expandableContainer.collapsed.expandableToggle::before
                     {
@@ -467,17 +564,17 @@ DEVELOPER NOTES
                     {
                       content: "";
                     }
-                    
+
                     .expandableToggle
                     {
-                      cursor: pointer; 
+                      cursor: pointer;
                     }
                     .expandableContainer > .expandableContents
                     {
                       background-color: #A8CBDE;
                       padding: 1em;
                     }
-                    
+
                     .expandableSeparate.expandableContainer.collapsed > .expandableContents
                     {
                       display: none;
@@ -496,13 +593,13 @@ DEVELOPER NOTES
                     {
                         word-wrap: break-word;
                     }
-                    
+
                     .debug
                     {
                       display: none;
                     }
                 </style>
-                
+
                 <script type="text/javascript">
                     <![CDATA[
                     //Collapse functionality
@@ -527,7 +624,7 @@ DEVELOPER NOTES
                     } // end of function toggleDiv()
                     ]]>
                 </script>
-                   
+
 <script type="text/javascript">
 <![CDATA[
 var currentTarget = null;
@@ -537,7 +634,7 @@ var previousTarget = null;
   when a user clicks on a idref link, find, scroll to, and highlight the
   target element.  this is usually an object, event, observable, related
   object, or associated object.
-  
+
   the highlighting is done via css transitions.
 */
 function highlightTarget(targetId)
@@ -567,7 +664,7 @@ function findAndExpandTarget(targetElement)
         isFound = currentAncestor.classList.contains("collapsibleContent");
         if (!isFound) { currentAncestor = currentAncestor.parentNode; }
     }
-    
+
     if (isFound)
     {
         //var collapsibleLabel = currentAncestor.previousSibling;
@@ -580,10 +677,10 @@ function toggle(containerNode)
 {
   console.log("starting toggle");
   //var parent = currentNode.parentNode;
-  
+
   containerNode.classList.toggle("collapsed");
   containerNode.classList.toggle("expanded");
-  
+
   console.log("finished toggle");
 }
 ]]>
@@ -591,68 +688,36 @@ function toggle(containerNode)
                </head>
                 <body>
                     <div id="wrapper">
-                        <div id="header"> 
-                            <H1>CybOX Output</H1>
-                            <table id="hor-minimalist-a" width="100%">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">Major Version</th>
-                                        <th scope="col">Minor Version</th>
-                                        <th scope="col">Filename</th>
-                                        <th scope="col">Generation Date</th>
-                                    </tr>
-                                </thead>
-                                <TR>
-                                    <TD><xsl:value-of select="//cybox:Observables/@cybox_major_version"/></TD>
-                                    <TD><xsl:value-of select="//cybox:Observables/@cybox_minor_version"/></TD>
-                                    <TD><xsl:value-of select="tokenize(document-uri(.), '/')[last()]"/></TD>
-                                    <TD><xsl:value-of select="current-dateTime()"/></TD>
-                                </TR>   
-                            </table>
-                        </div>
-                        <h2><a name="analysis">Observables</a></h2>
-                          <xsl:call-template name="processObservables"/>
+                        <xsl:if test="$include_cybox_version_info = 'true'">
+                            <xsl:call-template name="cyboxHeader"/>
+                        </xsl:if>
+                        <xsl:call-template name="processObservables"/>
                    </div>
                 </body>
             </html>
     </xsl:template>
-    
-    <!--
-      draw the main table on the page that represents the list of Observables.
-      these are the elements that are directly below the root element of the page.
-      
-      each observable will generate two rows in the table.  the first one is the
-      heading that's always visible and is clickable to expand/collapse the
-      second row.
-    -->
-    <xsl:template name="processObservables">
-      <xsl:for-each select="cybox:Observables">        
-          <div id="observablesspandiv" style="font-weight:bold; margin:5px; color:#BD9C8C;">
-            <TABLE class="grid tablesorter" cellspacing="0">
-                <COLGROUP>
-                    <COL width="90%"/>
-                    <COL width="10%"/>
-                </COLGROUP>
-                <THEAD>
-                    <TR>
-                        <TH class="header">
-                            ID
-                        </TH>
-                        <TH class="header">
-                            Type
-                        </TH>
-                    </TR>
-                </THEAD>
-                <TBODY>
-                    <xsl:for-each select="cybox:Observable">
-                        <!-- <xsl:sort select="cybox:Observable_Composition" order="descending"/> -->
-                        <xsl:variable name="evenOrOdd" select="if(position() mod 2 = 0) then 'even' else 'odd'" />
-                        <xsl:call-template name="processObservable"><xsl:with-param name="evenOrOdd" select="$evenOrOdd"/></xsl:call-template>
-                    </xsl:for-each>
-                </TBODY>
-            </TABLE>    
+
+    <xsl:template name="cyboxHeader">
+        <div id="header">
+            <H1>CybOX Output</H1>
+            <table id="hor-minimalist-a" width="100%">
+                <thead>
+                    <tr>
+                        <th scope="col">Major Version</th>
+                        <th scope="col">Minor Version</th>
+                        <th scope="col">Filename</th>
+                        <th scope="col">Generation Date</th>
+                    </tr>
+                </thead>
+                <TR>
+                    <TD><xsl:value-of select="//cybox:Observables/@cybox_major_version"/></TD>
+                    <TD><xsl:value-of select="//cybox:Observables/@cybox_minor_version"/></TD>
+                    <TD><xsl:value-of select="tokenize(document-uri(.), '/')[last()]"/></TD>
+                    <TD><xsl:value-of select="current-dateTime()"/></TD>
+                </TR>
+            </table>
         </div>
-        </xsl:for-each>
+        <h2><a name="analysis">Observables</a></h2>
     </xsl:template>
     
     <!--
@@ -674,10 +739,12 @@ function toggle(containerNode)
     <xsl:template name="processObservable">
         <xsl:param name="idStack" select="()" />
         <xsl:param name="evenOrOdd" />
-        
         <xsl:variable name="idStack" select="($idStack, fn:data(@id))" />
-        
-        <xsl:message>PROCESS OBSERVABLE current: <xsl:value-of select="@id"/>; stack: <xsl:value-of select="fn:string-join($idStack, ',')" /></xsl:message>
+        <xsl:variable name="debug" select="$debug"/>
+
+        <xsl:if test="$debug = 'true'">
+            <xsl:message>PROCESS OBSERVABLE current: <xsl:value-of select="@id"/>; stack: <xsl:value-of select="fn:string-join($idStack, ',')" /></xsl:message>
+        </xsl:if>
         
         <xsl:variable name="contentVar" select="concat(count(ancestor::node()), '00000000', count(preceding::node()))"/>
         <xsl:variable name="imgVar" select="generate-id()"/>
@@ -1092,8 +1159,11 @@ function toggle(containerNode)
         
         <xsl:variable name="idStack" select="$idStack, (fn:data(@id))"/>
         
-        <xsl:message>GENERIC OBJECT TEMPLATE current: id=<xsl:value-of select="@id"/> and idref=<xsl:value-of select="@idref"/> and object_reference=<xsl:value-of select="@object_reference" /> ### stack: <xsl:value-of select="fn:string-join($idStack, ',')" /></xsl:message>
-        
+        <xsl:variable name="debug" select="$debug"/>
+
+        <xsl:if test="$debug = 'true'">
+            <xsl:message>GENERIC OBJECT TEMPLATE current: id=<xsl:value-of select="@id"/> and idref=<xsl:value-of select="@idref"/> and object_reference=<xsl:value-of select="@object_reference" /> ### stack: <xsl:value-of select="fn:string-join($idStack, ',')" /></xsl:message>
+        </xsl:if>
 
         <div class="container {$identifierName}Container {$identifierName}">
             <!--
@@ -1182,7 +1252,9 @@ function toggle(containerNode)
                 </xsl:apply-templates>
             </div>
         </div>
-        <xsl:message>(end template) GENERIC OBJECT TEMPLATE current: id=<xsl:value-of select="@id"/> and idref=<xsl:value-of select="@idref"/> and object_reference=<xsl:value-of select="@object_reference" /></xsl:message>
+        <xsl:if test="$debug = 'true'">
+            <xsl:message>(end template) GENERIC OBJECT TEMPLATE current: id=<xsl:value-of select="@id"/> and idref=<xsl:value-of select="@idref"/> and object_reference=<xsl:value-of select="@object_reference" /></xsl:message>
+        </xsl:if>
     </xsl:template>
     
     <!--
@@ -1323,8 +1395,12 @@ function toggle(containerNode)
         <xsl:param name="idStack" select="()" />
         <xsl:variable name="targetId" select="fn:data(.)"/>
         <xsl:variable name="targetObject" select="//*[@id = $targetId]"/>
-        
-        <xsl:message>@object_reference TEMPLATE current: object_reference=<xsl:value-of select="fn:data(.)"/> ### stack: <xsl:value-of select="fn:string-join($idStack, ',')" /></xsl:message>
+
+        <xsl:variable name="debug" select="$debug"/>
+
+        <xsl:if test="$debug = 'true'">
+            <xsl:message>@object_reference TEMPLATE current: object_reference=<xsl:value-of select="fn:data(.)"/> ### stack: <xsl:value-of select="fn:string-join($idStack, ',')" /></xsl:message>
+        </xsl:if>
         
         <xsl:variable name="relationshipOrAssociationType" select="()" />
         <xsl:call-template name="headerAndExpandableContent">
@@ -1332,9 +1408,10 @@ function toggle(containerNode)
             <xsl:with-param name="relationshipOrAssociationType" select="$relationshipOrAssociationType" />
             <xsl:with-param name="idStack" select="$idStack" />
         </xsl:call-template>
-        
-        
-        <xsl:message> (end template) @object_reference TEMPLATE current: object_reference=<xsl:value-of select="fn:data(.)"/> </xsl:message>
+
+        <xsl:if test="$debug = 'true'">
+            <xsl:message> (end template) @object_reference TEMPLATE current: object_reference=<xsl:value-of select="fn:data(.)"/> </xsl:message>
+        </xsl:if>
     </xsl:template>
     
 </xsl:stylesheet>
