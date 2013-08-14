@@ -28,6 +28,9 @@ requirements:
  - XSLT 2.0 engine (this has been tested with Saxon 9.5)
  - a CybOX 2.0 input xml document
 
+Updated Fall 2013
+david_renne@yahoo.com - Added indicator/taxii support and configruation options
+
 Updated 2013
 mcoarr@mitre.org
 
@@ -72,6 +75,8 @@ DEVELOPER NOTES
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns:fn="http://www.w3.org/2005/xpath-functions"
 
+    xmlns:taxii="http://taxii.mitre.org/messages/taxii_xml_binding-1"
+    xmlns:stix="http://stix.mitre.org/stix-1"
     xmlns:SystemObj="http://cybox.mitre.org/objects#SystemObject-2"
     xmlns:FileObj="http://cybox.mitre.org/objects#FileObject-2"
     xmlns:ProcessObj="http://cybox.mitre.org/objects#ProcessObject-2"
@@ -92,7 +97,8 @@ DEVELOPER NOTES
     xmlns:WinDriverObj="http://cybox.mitre.org/objects#WinDriverObject-2"
     xmlns:WinFileObj="http://cybox.mitre.org/objects#WinFileObject-2"
     xmlns:WinExecutableFileObj="http://cybox.mitre.org/objects#WinExecutableFileObject-2"
-    xmlns:WinProcessObj="http://cybox.mitre.org/objects#WinProcessObject-2">
+    xmlns:indicator="http://stix.mitre.org/Indicator-2"
+    xmlns:WinProcessObj="http://cybox.mitre.org/objects#WinProcessObject-2" >
 
     <!-- <CONFIG> -->
 
@@ -105,10 +111,28 @@ DEVELOPER NOTES
         <!-- include_cybox_version_info will inject information and headers about the Cybox version -->
         <xsl:variable name="include_cybox_version_info" select="'true'"/>
 
+        <!-- if ID tag not found, set your desired text -->
+        <xsl:variable name="default_observable_missing_id" select="'Untitiled Observable ID'"/>
+
+        <!-- Raw Stix and Indicator Specific Configuration -->
+
+            <!-- Show a 24px header title containing the below prefix and then the stix:STIX_Header/stix:Title -->
+            <xsl:variable name="show_indicator_package_title" select="'true'"/>
+
+            <!-- if the below prefix variable ends in #, it will show an incrementer for multiple stix packages in your prefix. -->
+            <!-- if left blank, it will just show any applicable stix:Title's -->
+            <xsl:variable name="show_indicator_package_prefix" select="'Indicator Package #'"/>
+
+            <!-- Next to the header, show a link (Show Long Description) which will collapse the description stix:STIX_Header/stix:Description -->
+            <xsl:variable name="show_indicator_package_description" select="'true'"/>
+
+            <!-- Next to the indicator ID, show a link (Show Long Description) which will collapse the indicator description  -->
+            <xsl:variable name="show_indicator_description" select="'true'"/>
+
     <!-- </CONFIG> -->
         
 <xsl:output method="html" omit-xml-declaration="yes" indent="yes" media-type="text/html" version="4.0" />
-   <xsl:key name="observableID" match="cybox:Observable" use="@id"/>
+   <xsl:key name="observableID" match="cybox:Observable | indicator:Observable" use="@id"/>
     <!--
       This is the main template that sets up the html page that sets up the
       html structure, includes the base css and javascript, and adds the
@@ -136,7 +160,14 @@ DEVELOPER NOTES
       second row.
     -->
     <xsl:template name="processObservables">
-      <xsl:for-each select="cybox:Observables">        
+
+      <xsl:for-each select="cybox:Observables | //stix:STIX_Package/stix:Indicators | //stix:STIX_Package/stix:Observables | //taxii:Inbox_Message/taxii:Content/stix:STIX_Package/stix:Indicators | //taxii:Inbox_Message/taxii:Content/stix:STIX_Package/stix:Observables">
+          <xsl:variable name="show_indicator_package_title" select="$show_indicator_package_title"/>
+          <xsl:variable name="show_indicator_package_prefix" select="$show_indicator_package_prefix"/>
+          <xsl:variable name="show_indicator_package_description" select="$show_indicator_package_description"/>
+          <xsl:variable name="show_indicator_description" select="$show_indicator_description"/>
+          <xsl:variable name="item" select="." />
+          <xsl:variable name="previous" select=".." />
           <div id="observablesspandiv" style="font-weight:bold; margin:5px; color:#BD9C8C;">
             <TABLE class="grid tablesorter" cellspacing="0">
                 <COLGROUP>
@@ -144,6 +175,37 @@ DEVELOPER NOTES
                     <COL width="10%"/>
                 </COLGROUP>
                 <THEAD>
+
+                    <xsl:if test="name() = 'stix:Indicators' and $show_indicator_package_title = 'true'">
+                        <!-- If is indicator, show indicator group title for this box -->
+                        <TR>
+                            <TH colspan="2" class="header">
+                                <span style="font-size: 24px;">
+                                    <xsl:if test="$show_indicator_package_prefix != '' and $previous/stix:STIX_Header/stix:Title">
+                                        <xsl:value-of select="$show_indicator_package_prefix"/>
+                                        <xsl:if test="substring($show_indicator_package_prefix,string-length($show_indicator_package_prefix),string-length($show_indicator_package_prefix)-1) = '#'">
+                                            <xsl:value-of select="position()"/>
+                                        </xsl:if>
+                                         -
+                                    </xsl:if>
+                                    <xsl:value-of select="$previous/stix:STIX_Header/stix:Title"/>
+                                    <xsl:if test="$show_indicator_package_description = 'true' and $previous/stix:STIX_Header/stix:Description">
+                                        <a style="font-size:18px; cursor:pointer; color:grey;">
+                                            <xsl:attribute name="onclick"><xsl:value-of select="concat('showLongDescription(this, ', position(),');')"/></xsl:attribute>
+                                            (Show Long Description)
+                                        </a>
+                                    </xsl:if>
+                                </span>
+
+                                <xsl:if test="$show_indicator_package_description = 'true' and $previous/stix:STIX_Header/stix:Description">
+                                    <div style="font-size:13px; font-style: italic; display:none;">
+                                        <xsl:attribute name="id"><xsl:value-of select="concat(position(),'_description')"/></xsl:attribute>
+                                        <xsl:value-of select="$previous/stix:STIX_Header/stix:Description"/>
+                                    </div>
+                                </xsl:if>
+                            </TH>
+                        </TR>
+                    </xsl:if>
                     <TR>
                         <TH class="header">
                             ID
@@ -154,10 +216,69 @@ DEVELOPER NOTES
                     </TR>
                 </THEAD>
                 <TBODY>
-                    <xsl:for-each select="cybox:Observable">
+                    <xsl:for-each select="cybox:Observable | $item/stix:Indicator/indicator:Observable">
                         <!-- <xsl:sort select="cybox:Observable_Composition" order="descending"/> -->
+                        <xsl:variable name="parent" select="parent::node()"/>
                         <xsl:variable name="evenOrOdd" select="if(position() mod 2 = 0) then 'even' else 'odd'" />
-                        <xsl:call-template name="processObservable"><xsl:with-param name="evenOrOdd" select="$evenOrOdd"/></xsl:call-template>
+
+                        <xsl:choose>
+
+                            <xsl:when test="$parent/@xsi:type ='indicator:IndicatorType'">
+                                <xsl:if test="not(./preceding-sibling::node()/@id)">
+                                    <TR style="width:100%;font-style:italic;">
+                                        <TD>
+
+                                            <strong>
+                                                <xsl:value-of select="$parent/@id"/>
+                                                <xsl:if test="not($parent/@id)">
+                                                    Unknown Indicator ID
+                                                </xsl:if>
+                                            </strong>
+
+                                            <xsl:if test="$show_indicator_description = 'true' and $parent/indicator:Description">
+                                                <div style="font-size:13px; font-style: italic; display:none;">
+                                                    <xsl:attribute name="id"><xsl:value-of select="concat(position(),'_description')"/></xsl:attribute>
+                                                    <xsl:value-of select="$previous/stix:STIX_Header/stix:Description"/>
+                                                </div>
+
+                                                <a style="cursor:pointer; color:grey;">
+                                                    <xsl:attribute name="onclick"><xsl:value-of select="concat('showLongIndicatorDescription(this, ', position(),');')"/></xsl:attribute>
+                                                    (Show Long Description)
+                                                </a>
+                                            </xsl:if>
+                                        </TD>
+                                        <TD>
+                                            <xsl:if test="$parent/indicator:Type">
+                                                (<xsl:value-of select="$parent/indicator:Type"/>)
+                                            </xsl:if>
+                                            <xsl:if test="not($parent/indicator:Type)">
+                                                Unknown Type
+                                            </xsl:if>
+                                        </TD>
+                                    </TR>
+                                </xsl:if>
+
+
+                                <xsl:if test="$show_indicator_description = 'true' and $parent/indicator:Description">
+                                    <TR  style="width:100%;font-style:italic;">
+                                        <TD colspan="2">
+                                            <!--@todo, there is a bug with multiple indicator packages where the ID's will collide and descriptions wont collapse properly -->
+                                            <div style="font-size:13px; font-style: italic; display:none;">
+                                                <xsl:attribute name="id"><xsl:value-of select="concat(position(),'_ind_description')"/></xsl:attribute>
+                                                <xsl:value-of select="$parent/indicator:Description"/>
+                                            </div>
+                                        </TD>
+                                    </TR>
+                                </xsl:if>
+
+                                <xsl:call-template name="processObservable"><xsl:with-param name="evenOrOdd" select="''"/></xsl:call-template>
+                            </xsl:when>
+                            <xsl:otherwise>
+                                <xsl:call-template name="processObservable"><xsl:with-param name="evenOrOdd" select="$evenOrOdd"/></xsl:call-template>
+                            </xsl:otherwise>
+                        </xsl:choose>
+
+
                     </xsl:for-each>
                 </TBODY>
             </TABLE>    
@@ -175,14 +296,11 @@ DEVELOPER NOTES
 
     <xsl:template name="cleanOuterShell">
 
-        <xsl:variable name="debug" select="$debug"/>
-
-        <xsl:if test="$debug = 'true'">
-            <!-- Debugging most likely you will test external copied stylesheets and javascript files -->
+        <!--
+            Copy your external style sheets if you want to test your cleanOuterShell
             <link href="http://localhost:8000/static/css/cybox.css" rel="stylesheet"/>
             <script src="http://localhost:8000/static/js/cybox.js"><![CDATA[    //]]></script>
-        </xsl:if>
-
+        -->
         <xsl:variable name="include_cybox_version_info" select="$include_cybox_version_info"/>
         <div id="wrapper">
             <xsl:if test="$include_cybox_version_info = 'true'">
@@ -190,6 +308,7 @@ DEVELOPER NOTES
             </xsl:if>
             <xsl:call-template name="processObservables"/>
         </div>
+
     </xsl:template>
 
 
@@ -603,7 +722,7 @@ DEVELOPER NOTES
                 <script type="text/javascript">
                     <![CDATA[
                     //Collapse functionality
-                    function toggleDiv(divid, spanID)
+                    function toggleDiv(divid, spanID, span2)
                     {
                       if(document.getElementById(divid).style.display == 'none')
                       {
@@ -612,6 +731,10 @@ DEVELOPER NOTES
                         {
                           document.getElementById(spanID).innerText = "-";
                         }
+                        if(span2)
+                        {
+                          document.getElementById(span2).innerText = "-";
+                        }
                       } // end of if-then
                       else
                       {
@@ -619,6 +742,10 @@ DEVELOPER NOTES
                         if(spanID)
                         {
                           document.getElementById(spanID).innerText = "+";
+                        }
+                        if(span2)
+                        {
+                          document.getElementById(span2).innerText = "+";
                         }
                       } // end of else
                     } // end of function toggleDiv()
@@ -649,6 +776,40 @@ function highlightTarget(targetId)
     findAndExpandTarget(targetElement);
     targetElement.scrollIntoView(false);
     targetElement.setAttribute("class", "relatedTarget");
+}
+
+/*
+  When a user clicks on an indicator long description
+*/
+
+function showLongDescription(obj, targetId)
+{
+    toggleText(obj, targetId,'_description');
+}
+
+function showLongIndicatorDescription(obj, targetId)
+{
+    toggleText(obj, targetId,'_ind_description');
+}
+
+function toggleText(obj, targetId, id_convention)
+{
+    var targetElement = document.getElementById(targetId + id_convention);
+    if (targetElement == null)
+    {
+        alert("target not in present document");
+        return;
+    }
+    if(targetElement.style.display == 'block')
+    {
+        targetElement.style.display = 'none';
+        obj.innerHTML = '(Show Long Description)';
+    }
+    else
+    {
+        targetElement.style.display = 'block';
+        obj.innerHTML = '(Hide Long Description)';
+    }
 }
 
 /*
@@ -739,40 +900,56 @@ function toggle(containerNode)
     <xsl:template name="processObservable">
         <xsl:param name="idStack" select="()" />
         <xsl:param name="evenOrOdd" />
+
         <xsl:variable name="idStack" select="($idStack, fn:data(@id))" />
         <xsl:variable name="debug" select="$debug"/>
+        <xsl:variable name="default_observable_missing_id" select="$default_observable_missing_id"/>
+        <xsl:variable name="contentVar" select="concat(count(ancestor::node()), '00000000', count(preceding::node()))"/>
+        <xsl:variable name="imgVar" select="generate-id()"/>
+        <xsl:variable name="parent" select="parent::node()"/>
 
         <xsl:if test="$debug = 'true'">
             <xsl:message>PROCESS OBSERVABLE current: <xsl:value-of select="@id"/>; stack: <xsl:value-of select="fn:string-join($idStack, ',')" /></xsl:message>
         </xsl:if>
-        
-        <xsl:variable name="contentVar" select="concat(count(ancestor::node()), '00000000', count(preceding::node()))"/>
-        <xsl:variable name="imgVar" select="generate-id()"/>
-        <TR><xsl:attribute name="class"><xsl:value-of select="$evenOrOdd" /></xsl:attribute>
-        <TD>
-            <div id="fileObjAtt" class="collapsibleLabel" style="cursor: pointer;" onclick="toggleDiv('{$contentVar}','{$imgVar}')">
-                <span id="{$imgVar}" style="font-weight:bold; margin:5px; color:#BD9C8C;">+</span><xsl:value-of select="@id"/>
-            </div>
-        </TD>
-        <TD>                    
-            <xsl:choose>
-                <xsl:when test="cybox:Observable_Composition">
-                    Composition
-                </xsl:when>
-                <xsl:when test="cybox:Event">
-                    Event
-                </xsl:when>
-                <xsl:when test="cybox:Object/cybox:Properties/@xsi:type">
-                    <xsl:value-of select="fn:local-name-from-QName(fn:resolve-QName(cybox:Object/cybox:Properties/@xsi:type, cybox:Object/cybox:Properties))" />
-                </xsl:when>
-                <xsl:when test="cybox:Object/cybox:Properties/@xsi:type and not(cybox:Object/cybox:Properties/@xsi:type)">
-                    Object (no properties set)
-                </xsl:when>
-                <xsl:otherwise>
-                    Other
-                </xsl:otherwise>
-            </xsl:choose>
-        </TD>
+
+        <TR>
+            <xsl:attribute name="class"><xsl:value-of select="$evenOrOdd" /></xsl:attribute>
+            <TD>
+                <div id="fileObjAtt" class="collapsibleLabel" style="cursor: pointer;" onclick="toggleDiv('{$contentVar}','{$imgVar}','{$imgVar}-2')">
+                    <span id="{$imgVar}" style="font-weight:bold; margin:5px; color:#BD9C8C;">+</span>
+
+                    <xsl:choose>
+                        <xsl:when test="@id">
+                            <xsl:value-of select="@id"/>
+                        </xsl:when>
+                        <xsl:otherwise>
+                            <xsl:value-of select="$default_observable_missing_id"/>
+                        </xsl:otherwise>
+                    </xsl:choose>
+                </div>
+            </TD>
+            <TD>
+                <div style="cursor: pointer;" onclick="toggleDiv('{$contentVar}','{$imgVar}','{$imgVar}-2')">
+                <span id="{$imgVar}-2" style="font-weight:bold; margin:5px; color:#BD9C8C;">+</span>
+                    <xsl:choose>
+                        <xsl:when test="cybox:Observable_Composition">
+                            Composition
+                        </xsl:when>
+                        <xsl:when test="cybox:Event">
+                            Event
+                        </xsl:when>
+                        <xsl:when test="cybox:Object/cybox:Properties/@xsi:type">
+                            <xsl:value-of select="fn:local-name-from-QName(fn:resolve-QName(cybox:Object/cybox:Properties/@xsi:type, cybox:Object/cybox:Properties))" />
+                        </xsl:when>
+                        <xsl:when test="cybox:Object/cybox:Properties/@xsi:type and not(cybox:Object/cybox:Properties/@xsi:type)">
+                            Object (no properties set)
+                        </xsl:when>
+                        <xsl:otherwise>
+                            Other
+                        </xsl:otherwise>
+                    </xsl:choose>
+                </div>
+            </TD>
         </TR>
         <TR><xsl:attribute name="class"><xsl:value-of select="$evenOrOdd" /></xsl:attribute>
         <TD colspan="2">
@@ -850,6 +1027,14 @@ function toggle(containerNode)
             </div>
         </TD>
         </TR>
+
+        <xsl:if test="$parent/@xsi:type ='indicator:IndicatorType' and not(./following-sibling::node()/@id)">
+            <TR>
+                <TD colspan="2">
+                    <hr/>
+                </TD>
+            </TR>
+        </xsl:if>
     </xsl:template>
     
     <!--
