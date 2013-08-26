@@ -65,18 +65,18 @@ DEVELOPER NOTES
 
 
 
-<xsl:stylesheet 
+<xsl:stylesheet
     version="2.0"
     xmlns:cybox="http://cybox.mitre.org/cybox-2"
     xmlns:Common="http://cybox.mitre.org/common-2"
     xmlns:ArtifactObj="http://cybox.mitre.org/objects#ArtifactObject-2"
-    
-    xmlns:xsl="http://www.w3.org/1999/XSL/Transform" 
+
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns:fn="http://www.w3.org/2005/xpath-functions"
 
-    xmlns:taxii="http://taxii.mitre.org/messages/taxii_xml_binding-1"
-    xmlns:stix="http://stix.mitre.org/stix-1"
+	xmlns:taxii="http://taxii.mitre.org/messages/taxii_xml_binding-1"
+	xmlns:stix="http://stix.mitre.org/stix-1"
     xmlns:SystemObj="http://cybox.mitre.org/objects#SystemObject-2"
     xmlns:FileObj="http://cybox.mitre.org/objects#FileObject-2"
     xmlns:ProcessObj="http://cybox.mitre.org/objects#ProcessObject-2"
@@ -103,7 +103,7 @@ DEVELOPER NOTES
     <!-- <CONFIG> -->
 
         <!-- debug will allow you to conditionally inject information in the XSLT routine -->
-        <xsl:variable name="debug" select="'true'"/>
+        <xsl:variable name="debug" select="'false'"/>
 
         <!-- include_html_body will inline all CSS and javascript as well as wrap the HTML node around the Cybox object HTML output -->
         <xsl:variable name="include_html_body" select="'true'"/>
@@ -111,8 +111,14 @@ DEVELOPER NOTES
         <!-- include_cybox_version_info will inject information and headers about the Cybox version -->
         <xsl:variable name="include_cybox_version_info" select="'true'"/>
 
+        <!-- include_cybox_version_info will inject information and headers about the Cybox version -->
+        <xsl:variable name="show_id_and_type_header_row" select="'true'"/>
+
         <!-- if ID tag not found, set your desired text -->
         <xsl:variable name="default_observable_missing_id" select="'Untitiled Observable ID'"/>
+
+        <!-- default display for observables and description "'none'" for collapsed and "''block'" for shown -->
+        <xsl:variable name="default_collapse" select="'block'"/>
 
         <!-- Raw Stix and Indicator Specific Configuration -->
 
@@ -120,7 +126,7 @@ DEVELOPER NOTES
             <xsl:variable name="show_indicator_package_title" select="'true'"/>
 
             <!-- if the below prefix variable ends in #, it will show an incrementer for multiple stix packages in your prefix. -->
-            <!-- if left blank, it will just show any applicable stix:Title's -->
+            <!-- if left blank, it will just show any applicable stix:Title's --> 
             <xsl:variable name="show_indicator_package_prefix" select="'Indicator Package #'"/>
 
             <!-- Next to the header, show a link (Show Long Description) which will collapse the description stix:STIX_Header/stix:Description -->
@@ -166,8 +172,11 @@ DEVELOPER NOTES
           <xsl:variable name="show_indicator_package_prefix" select="$show_indicator_package_prefix"/>
           <xsl:variable name="show_indicator_package_description" select="$show_indicator_package_description"/>
           <xsl:variable name="show_indicator_description" select="$show_indicator_description"/>
+          <xsl:variable name="default_collapse" select="$default_collapse"/>
+          <xsl:variable name="show_id_and_type_header_row" select="$show_id_and_type_header_row"/>
           <xsl:variable name="item" select="." />
           <xsl:variable name="previous" select=".." />
+          <xsl:variable name="show_long_text" select="if($default_collapse = 'none') then 'Show Long Description' else 'Hide Long Description'" />
           <div id="observablesspandiv" style="font-weight:bold; margin:5px; color:#BD9C8C;">
             <TABLE class="grid tablesorter" cellspacing="0">
                 <COLGROUP>
@@ -190,15 +199,15 @@ DEVELOPER NOTES
                                     </xsl:if>
                                     <xsl:value-of select="$previous/stix:STIX_Header/stix:Title"/>
                                     <xsl:if test="$show_indicator_package_description = 'true' and $previous/stix:STIX_Header/stix:Description">
-                                        <a style="font-size:18px; cursor:pointer; color:grey;">
+                                        <a style="font-size:18px; cursor:pointer; color:mintcream;">
                                             <xsl:attribute name="onclick"><xsl:value-of select="concat('showLongDescription(this, ', position(),');')"/></xsl:attribute>
-                                            (Show Long Description)
+                                            (<xsl:value-of select="$show_long_text"/>)
                                         </a>
                                     </xsl:if>
                                 </span>
 
                                 <xsl:if test="$show_indicator_package_description = 'true' and $previous/stix:STIX_Header/stix:Description">
-                                    <div style="font-size:13px; font-style: italic; display:none;">
+                                    <div style="font-size:13px; font-style: italic; display:{$default_collapse};">
                                         <xsl:attribute name="id"><xsl:value-of select="concat(position(),'_description')"/></xsl:attribute>
                                         <xsl:value-of select="$previous/stix:STIX_Header/stix:Description"/>
                                     </div>
@@ -206,14 +215,16 @@ DEVELOPER NOTES
                             </TH>
                         </TR>
                     </xsl:if>
-                    <TR>
-                        <TH class="header">
-                            ID
-                        </TH>
-                        <TH class="header">
-                            Type
-                        </TH>
-                    </TR>
+                    <xsl:if test="$show_id_and_type_header_row = 'true'">
+                        <TR>
+                            <TH class="header">
+                                ID
+                            </TH>
+                            <TH class="header">
+                                Type
+                            </TH>
+                        </TR>
+                    </xsl:if>
                 </THEAD>
                 <TBODY>
                     <xsl:for-each select="cybox:Observable | $item/stix:Indicator/indicator:Observable">
@@ -226,7 +237,7 @@ DEVELOPER NOTES
                             <xsl:when test="$parent/@xsi:type ='indicator:IndicatorType'">
                                 <xsl:if test="not(./preceding-sibling::node()/@id)">
                                     <TR style="width:100%;font-style:italic;">
-                                        <TD>
+                                        <TD style="background-color:#0088cc !important; color:white;">
 
                                             <strong>
                                                 <xsl:value-of select="$parent/@id"/>
@@ -236,18 +247,18 @@ DEVELOPER NOTES
                                             </strong>
 
                                             <xsl:if test="$show_indicator_description = 'true' and $parent/indicator:Description">
-                                                <div style="font-size:13px; font-style: italic; display:none;">
+                                                <div style="font-size:13px; font-style: italic; display:{$default_collapse};">
                                                     <xsl:attribute name="id"><xsl:value-of select="concat(position(),'_description')"/></xsl:attribute>
                                                     <xsl:value-of select="$previous/stix:STIX_Header/stix:Description"/>
                                                 </div>
 
-                                                <a style="cursor:pointer; color:grey;">
+                                                <a style="cursor:pointer; color:mintcream;">
                                                     <xsl:attribute name="onclick"><xsl:value-of select="concat('showLongIndicatorDescription(this, ', position(),');')"/></xsl:attribute>
-                                                    (Show Long Description)
+                                                    (<xsl:value-of select="$show_long_text"/>)
                                                 </a>
                                             </xsl:if>
                                         </TD>
-                                        <TD>
+                                        <TD style="background-color:#0088cc !important; color:white;">
                                             <xsl:if test="$parent/indicator:Type">
                                                 (<xsl:value-of select="$parent/indicator:Type"/>)
                                             </xsl:if>
@@ -260,10 +271,10 @@ DEVELOPER NOTES
 
 
                                 <xsl:if test="$show_indicator_description = 'true' and $parent/indicator:Description">
-                                    <TR  style="width:100%;font-style:italic;">
+                                    <TR style="width:100%;font-style:italic;">
                                         <TD colspan="2">
                                             <!--@todo, there is a bug with multiple indicator packages where the ID's will collide and descriptions wont collapse properly -->
-                                            <div style="font-size:13px; font-style: italic; display:none;">
+                                            <div style="font-size:13px; font-style: italic; display:{$default_collapse};">
                                                 <xsl:attribute name="id"><xsl:value-of select="concat(position(),'_ind_description')"/></xsl:attribute>
                                                 <xsl:value-of select="$parent/indicator:Description"/>
                                             </div>
@@ -904,6 +915,7 @@ function toggle(containerNode)
         <xsl:variable name="idStack" select="($idStack, fn:data(@id))" />
         <xsl:variable name="debug" select="$debug"/>
         <xsl:variable name="default_observable_missing_id" select="$default_observable_missing_id"/>
+        <xsl:variable name="default_collapse" select="$default_collapse"/>
         <xsl:variable name="contentVar" select="concat(count(ancestor::node()), '00000000', count(preceding::node()))"/>
         <xsl:variable name="imgVar" select="generate-id()"/>
         <xsl:variable name="parent" select="parent::node()"/>
@@ -912,11 +924,20 @@ function toggle(containerNode)
             <xsl:message>PROCESS OBSERVABLE current: <xsl:value-of select="@id"/>; stack: <xsl:value-of select="fn:string-join($idStack, ',')" /></xsl:message>
         </xsl:if>
 
+        <xsl:if test="$debug != 'true'">
+            <!-- for production output 1\n for each observable to ensure something is output -->
+            <xsl:message>1</xsl:message>
+        </xsl:if>
+
+        <xsl:variable name="plus_minus" select="if($default_collapse = 'none') then '+' else '-'" />
+
         <TR>
             <xsl:attribute name="class"><xsl:value-of select="$evenOrOdd" /></xsl:attribute>
             <TD>
                 <div id="fileObjAtt" class="collapsibleLabel" style="cursor: pointer;" onclick="toggleDiv('{$contentVar}','{$imgVar}','{$imgVar}-2')">
-                    <span id="{$imgVar}" style="font-weight:bold; margin:5px; color:#BD9C8C;">+</span>
+                    <span id="{$imgVar}" style="font-weight:bold; margin:5px; color:#BD9C8C;">
+                        <xsl:value-of select="$plus_minus"/>
+                    </span>
 
                     <xsl:choose>
                         <xsl:when test="@id">
@@ -930,7 +951,9 @@ function toggle(containerNode)
             </TD>
             <TD>
                 <div style="cursor: pointer;" onclick="toggleDiv('{$contentVar}','{$imgVar}','{$imgVar}-2')">
-                <span id="{$imgVar}-2" style="font-weight:bold; margin:5px; color:#BD9C8C;">+</span>
+                <span id="{$imgVar}-2" style="font-weight:bold; margin:5px; color:#BD9C8C;">
+                    <xsl:value-of select="$plus_minus"/>
+                </span>
                     <xsl:choose>
                         <xsl:when test="cybox:Observable_Composition">
                             Composition
@@ -953,9 +976,8 @@ function toggle(containerNode)
         </TR>
         <TR><xsl:attribute name="class"><xsl:value-of select="$evenOrOdd" /></xsl:attribute>
         <TD colspan="2">
-          <div id="{$contentVar}"  class="collapsibleContent" style="overflow:hidden; display:none; padding:0px 7px;">
+          <div id="{$contentVar}"  class="collapsibleContent" style="overflow:hidden; display:{$default_collapse}; padding:0px 7px;">
               <div><xsl:attribute name="id"><xsl:value-of select="@id"/></xsl:attribute>
-                  <div class="debug idStack">id stack: <xsl:value-of select="fn:string-join($idStack, ',')"/></div>
                   <xsl:if test="cybox:Title">
                     <br/>
                     <div id="section">
@@ -1131,7 +1153,6 @@ function toggle(containerNode)
             
         </xsl:element>
         <xsl:text> </xsl:text>
-        <span class="debug inlineOrByReferenceLabel">(inline object)</span>
         
     </xsl:template>
     
@@ -1208,7 +1229,6 @@ function toggle(containerNode)
         -->
         
         <xsl:text> </xsl:text>
-        <span class="debug inlineOrByReferenceLabel">(reference by idref)</span>
         
     </xsl:template>
 
@@ -1255,10 +1275,12 @@ function toggle(containerNode)
         <xsl:param name="targetObject" select="//*[@id = $targetId]" />
         <xsl:param name="relationshipOrAssociationType" />
         <xsl:param name="idStack" select="()" />
-        
+        <xsl:variable name="default_collapse" select="$default_collapse"/>
+        <xsl:variable name="collapse_class" select="if($default_collapse = 'none') then 'collapsed' else 'expanded'" />
+
         <xsl:choose>
             <xsl:when test="$targetObject and not(fn:exists($idStack[. = $targetId]))">
-                <div class="expandableContainer expandableSeparate collapsed">
+                <div class="expandableContainer expandableSeparate {$collapse_class}">
                     <div class="expandableToggle objectReference" onclick="toggle(this.parentNode)">
                         <xsl:call-template name="objectHeaderOnly">
                             <xsl:with-param name="targetObject" select="$targetObject" />
@@ -1369,8 +1391,6 @@ function toggle(containerNode)
                            <xsl:with-param name="id" select="@id"/>
                        </xsl:call-template>
                     </xsl:if>
-                    
-                    <div class="debug idStack">id stack: <xsl:value-of select="fn:string-join($idStack, ',')"/></div>
                     <!--
                       If this "object" is an object reference (an "idref link")
                       print out the link that will jump to the original object.
@@ -1456,7 +1476,6 @@ function toggle(containerNode)
         <div class="container action">
             <div class="heading action">ACTION <xsl:value-of select="cybox:Type/text()" /> (xsi type: <xsl:value-of select="cybox:Type/@xsi:type" />)</div>
             <div class="contents action">
-                <div class="debug idStack">id stack: <xsl:value-of select="fn:string-join($idStack, ',')"/></div>
                 <xsl:apply-templates select="cybox:Associated_Objects">
                     <xsl:with-param name="idStack" select="$idStack" />
                 </xsl:apply-templates>
@@ -1545,9 +1564,13 @@ function toggle(containerNode)
          binary base64 data)
     -->
     <xsl:template match="text()" mode="cyboxProperties">
+
+        <xsl:variable name="default_collapse" select="$default_collapse"/>
+        <xsl:variable name="collapse_class" select="if($default_collapse = 'none') then 'collapsed' else 'expanded'" />
+
         <xsl:choose>
             <xsl:when test="string-length() gt 200">
-                <div class="longText expandableContainer expandableToggle expandableContents collapsed expandableSame" onclick="toggle(this)"><xsl:value-of select="fn:data(.)" /></div>
+                <div class="longText expandableContainer expandableToggle expandableContents {$collapse_class} expandableSame" onclick="toggle(this)"><xsl:value-of select="fn:data(.)" /></div>
             </xsl:when>
             <xsl:otherwise>
                 <xsl:value-of select="fn:data(.)" />
